@@ -414,7 +414,9 @@ export class TmuxControlConnection implements TerminalConnection {
         throw new Error(
           `Could not attach to Pane on Machine ${machine.name}: ${connection.processError.message}`,
         );
-      throw new Error(error instanceof Error ? error.message : String(error));
+      throw new Error(
+        `Could not attach to Pane on Machine ${machine.name}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -476,11 +478,6 @@ export class TmuxControlConnection implements TerminalConnection {
   private command(command: string, timeoutMs = 15000): Promise<Buffer> {
     if (this.closed) return Promise.reject(new Error("tmux control client is closed"));
     const response = this.enqueueResponse();
-    try {
-      this.write(command);
-    } catch (error) {
-      return Promise.reject(error);
-    }
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
@@ -489,7 +486,13 @@ export class TmuxControlConnection implements TerminalConnection {
         reject(error);
       }, timeoutMs);
     });
-    return Promise.race([response, timeout]).finally(() => clearTimeout(timer!));
+    const result = Promise.race([response, timeout]).finally(() => clearTimeout(timer!));
+    try {
+      this.write(command);
+    } catch (error) {
+      this.fail(error instanceof Error ? error : new Error(String(error)));
+    }
+    return result;
   }
   private write(command: string): void {
     if (this.closed || !this.child.stdin.writable) throw new Error("tmux control client is closed");

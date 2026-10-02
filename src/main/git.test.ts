@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Machine } from "../domain/types";
 import type { MachineAccess, MachineProbe } from "./machine-access";
@@ -402,7 +402,7 @@ describe("Git adapter", () => {
     });
     expect(store.loadState().worktrees).toHaveLength(1);
     expect(store.loadState().workspaces[0].preparation_state).toBe("ready");
-    const raw = new DatabaseSync(database, { readOnly: true });
+    const raw = new Database(database, { readonly: true });
     expect(raw.prepare("SELECT path,branch,is_dirty FROM worktrees WHERE id=1").get()).toEqual({
       path: worktree.path,
       branch: worktree.branch,

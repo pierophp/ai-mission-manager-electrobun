@@ -1,7 +1,7 @@
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runtime } from "./runtime";
 import { openSqliteStore } from "./persistence/sqlite-store";
@@ -25,7 +25,7 @@ describe("Run launch IPC gate", () => {
     temporaryDirectories.push(directory);
     const databasePath = path.join(directory, "launch.sqlite");
     copyFileSync("src/main/persistence/fixtures/rust-persistence.sqlite", databasePath);
-    const database = new DatabaseSync(databasePath);
+    const database = new Database(databasePath);
     database.exec(
       "DELETE FROM runs; UPDATE metadata SET value=1 WHERE key='next_run_id'; UPDATE metadata SET value=(SELECT COALESCE(MAX(id),0)+1 FROM audit_entries) WHERE key='next_audit_id'; UPDATE contexts SET execution_machine_id=1 WHERE id=1;",
     );

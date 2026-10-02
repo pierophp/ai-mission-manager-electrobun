@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type {
   Activity,
   Context,
@@ -50,10 +50,12 @@ const sequenceKeys = [
   "next_reminder_id",
 ] as const;
 
-export function loadDomainState(database: DatabaseSync): DomainState {
+export function loadDomainState(database: Database): DomainState {
   const sequences = Object.fromEntries(
     sequenceKeys.map((key) => {
-      const row = database.prepare("SELECT value FROM metadata WHERE key = ?").get(key);
+      const row = database
+        .prepare<{ value: number }, SQLQueryBindings[]>("SELECT value FROM metadata WHERE key = ?")
+        .get(key);
       const value = asNumber(row?.value, key);
       if (value < 1) throw new Error(`invalid ${key} value in database: ${value}`);
       return [key, value];

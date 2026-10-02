@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCommandDispatcher, invokeEnvelope } from "../../shared/ipc";
 import { createReadCommandHandlers } from "./commands";
@@ -66,7 +66,7 @@ describe("Rust-compatible SQLite store", () => {
         { type: "persist_audit", action: { action: "runDeleted", run_id: 42 } },
       ],
     });
-    const raw = new DatabaseSync(store.path, { readOnly: true });
+    const raw = new Database(store.path, { readonly: true });
     expect(raw.prepare("SELECT action_json FROM audit_entries ORDER BY id").all()).toEqual([
       { action_json: '{"action":"runFinished","run_id":42}' },
       { action_json: '{"action":"runDeleted","run_id":42}' },
@@ -97,7 +97,7 @@ describe("Rust-compatible SQLite store", () => {
     });
     expect(machine).toMatchObject({ id: 1, name: "Build" });
     expect(store.loadState().machines[0]).toMatchObject({ id: 1, transport: ssh });
-    const raw = new DatabaseSync(store.path, { readOnly: true });
+    const raw = new Database(store.path, { readonly: true });
     expect(raw.prepare("SELECT transport_json FROM machines WHERE id=1").get()).toEqual({
       transport_json:
         '{"kind":"ssh","host":"build.example","user":"piero","port":2222,"identity_file":"/tmp/build key","known_hosts_file":"/tmp/known hosts","strict_host_key_checking":"accept-new"}',
@@ -269,8 +269,10 @@ describe("Rust-compatible SQLite store", () => {
       },
     ]);
     store.close();
-    const check = new DatabaseSync(databasePath, { readOnly: true });
+    const check = new Database(databasePath, { readonly: true });
+    check.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000;");
     expect(check.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+    expect(check.prepare("PRAGMA busy_timeout").get()).toEqual({ timeout: 1000 });
     expect(check.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "delete" });
     check.close();
   });
@@ -278,7 +280,7 @@ describe("Rust-compatible SQLite store", () => {
   it("loads the settings and Activity reads from the existing database", async () => {
     const databasePath = temporaryDatabase();
     openSqliteStore(databasePath).close();
-    const writer = new DatabaseSync(databasePath);
+    const writer = new Database(databasePath);
     writer.exec("PRAGMA foreign_keys=ON;");
     writer
       .prepare(
@@ -385,7 +387,7 @@ describe("Rust-compatible SQLite store", () => {
 
   it("reports the Rust-compatible incompatibility message for a partial schema", () => {
     const databasePath = temporaryDatabase();
-    const database = new DatabaseSync(databasePath);
+    const database = new Database(databasePath);
     database.exec(
       "CREATE TABLE items(id INTEGER PRIMARY KEY, project_id INTEGER); CREATE TABLE link_attention_state(link_id INTEGER PRIMARY KEY);",
     );
@@ -398,7 +400,7 @@ describe("Rust-compatible SQLite store", () => {
   it("rejects a schema missing any loader column with the same incompatibility message", () => {
     const databasePath = temporaryDatabase();
     openSqliteStore(databasePath).close();
-    const database = new DatabaseSync(databasePath);
+    const database = new Database(databasePath);
     database.exec("ALTER TABLE runs DROP COLUMN plan_path;");
     database.close();
 
@@ -420,7 +422,7 @@ describe("Context write transactions", () => {
       context_id: context.id,
       name: "Default",
     });
-    const database = new DatabaseSync(store.path, { readOnly: true });
+    const database = new Database(store.path, { readonly: true });
     expect(
       database
         .prepare("SELECT id,name,check_dirty_checkouts FROM contexts WHERE id=?")
@@ -441,7 +443,7 @@ describe("Context write transactions", () => {
     const { Runtime } = await import("../runtime");
     const { newContextConfiguration } = await import("./sqlite-store");
     const store = openSqliteStore(temporaryDatabase());
-    const seed = new DatabaseSync(store.path);
+    const seed = new Database(store.path);
     seed.exec("PRAGMA foreign_keys=ON");
     seed
       .prepare(
@@ -525,7 +527,7 @@ describe("Context write transactions", () => {
       workspace_repositories: unknown[][];
       metadata: Record<string, number>;
     };
-    const database = new DatabaseSync(store.path, { readOnly: true });
+    const database = new Database(store.path, { readonly: true });
     const contextRow = database
       .prepare(
         "SELECT id,name,execution_machine_id,check_dirty_checkouts,grill_agent,grill_model,grill_effort,implement_agent,implement_model,implement_effort,default_workflow,pstack_agent,pstack_model,pstack_effort,pstack_roles_json,claude_profile_id,codex_profile_id,gh_executable_path,twg_executable_path,az_executable_path,atlassian_site,azure_devops_organization,bitbucket_workspace FROM contexts WHERE id=?",
@@ -545,27 +547,29 @@ describe("Context write transactions", () => {
       .prepare("SELECT action_json FROM audit_entries ORDER BY id")
       .all() as { action_json: string }[];
     const projects = database
-      .prepare(
+      .prepare<Record<string, unknown>, SQLQueryBindings[]>(
         "SELECT id,context_id,name,default_item_status,default_execution_mode FROM projects ORDER BY id",
       )
       .all()
       .map((row) => Object.values(row));
     const repositories = database
-      .prepare("SELECT id,project_id,name,remote_url,base_branch FROM repositories ORDER BY id")
+      .prepare<Record<string, unknown>, SQLQueryBindings[]>(
+        "SELECT id,project_id,name,remote_url,base_branch FROM repositories ORDER BY id",
+      )
       .all()
       .map((row) => Object.values(row));
     const repositoryLocations = database
-      .prepare(
+      .prepare<Record<string, unknown>, SQLQueryBindings[]>(
         "SELECT repository_id,machine_id,checkout_path,worktree_root FROM repository_locations ORDER BY repository_id,machine_id",
       )
       .all()
       .map((row) => Object.values(row));
     const workspaces = database
-      .prepare("SELECT id,item_id,preparation_state FROM workspaces ORDER BY id")
+      .prepare<Record<string, unknown>, SQLQueryBindings[]>("SELECT id,item_id,preparation_state FROM workspaces ORDER BY id")
       .all()
       .map((row) => Object.values(row));
     const workspaceRepositories = database
-      .prepare(
+      .prepare<Record<string, unknown>, SQLQueryBindings[]>(
         "SELECT workspace_id,repository_id,branch,base_branch FROM workspace_repositories ORDER BY workspace_id,repository_id",
       )
       .all()
@@ -663,7 +667,7 @@ describe("Context write transactions", () => {
     const store = openSqliteStore(temporaryDatabase());
     const runtime = new Runtime(store);
     const before = runtime.snapshot();
-    const database = new DatabaseSync(store.path);
+    const database = new Database(store.path);
     database.exec(
       "CREATE TRIGGER reject_project BEFORE INSERT ON projects WHEN NEW.name='Default' AND NEW.context_id=2 BEGIN SELECT RAISE(ABORT,'write rejected'); END",
     );
@@ -672,7 +676,7 @@ describe("Context write transactions", () => {
       "write rejected",
     );
     expect(runtime.snapshot()).toEqual(before);
-    const verify = new DatabaseSync(store.path, { readOnly: true });
+    const verify = new Database(store.path, { readonly: true });
     expect(
       verify.prepare("SELECT COUNT(*) AS count FROM contexts WHERE name='Research'").get(),
     ).toEqual({ count: 0 });

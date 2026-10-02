@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runtime } from "./runtime";
 import { newContextConfiguration, openSqliteStore } from "./persistence/sqlite-store";
@@ -227,7 +227,7 @@ describe("External Object commands and persistence", () => {
     await expect(
       handlers.fetch_issue_document({ externalObjectId: pull.link.object.id }),
     ).rejects.toThrow("Only Issues and documents can be read as a spec document");
-    const raw = new DatabaseSync(dbPath, { readOnly: true });
+    const raw = new Database(dbPath, { readonly: true });
     expect(
       raw.prepare("SELECT metadata_json FROM external_snapshots WHERE external_object_id=1").get(),
     ).toEqual({
@@ -358,10 +358,11 @@ describe("External Object commands and persistence", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "external-poll-generation-"));
     dirs.push(dir);
     const gate = path.join(dir, "first-poll-started");
+    const release = path.join(dir, "release-first-poll");
     const cli = path.join(dir, "gh");
     writeFileSync(
       cli,
-      `#!/bin/sh\nif mkdir '${gate}' 2>/dev/null; then sleep 0.4; printf '%s' '{"number":7,"title":"Old response","state":"OPEN","author":{"login":"octocat"},"labels":[],"milestone":null,"createdAt":null,"updatedAt":null}'; else printf '%s' '{"number":7,"title":"Newest response","state":"CLOSED","author":{"login":"octocat"},"labels":[],"milestone":null,"createdAt":null,"updatedAt":null}'; fi\n`,
+      `#!/bin/sh\nif mkdir '${gate}' 2>/dev/null; then while [ ! -f '${release}' ]; do sleep 0.01; done; printf '%s' '{"number":7,"title":"Old response","state":"OPEN","author":{"login":"octocat"},"labels":[],"milestone":null,"createdAt":null,"updatedAt":null}'; else printf '%s' '{"number":7,"title":"Newest response","state":"CLOSED","author":{"login":"octocat"},"labels":[],"milestone":null,"createdAt":null,"updatedAt":null}'; fi\n`,
     );
     chmodSync(cli, 0o755);
     const dbPath = path.join(dir, "mission-manager.sqlite");
@@ -389,14 +390,19 @@ describe("External Object commands and persistence", () => {
     });
     const handlers = createExternalCommandHandlers(runtime);
     const firstPoll = handlers.poll_external_objects();
-    for (
-      let attempts = 0;
-      attempts < 100 && !(await import("node:fs").then(({ existsSync }) => existsSync(gate)));
-      attempts++
-    )
+    const { existsSync } = await import("node:fs");
+    const gateDeadline = Date.now() + 5000;
+    while (!existsSync(gate) && Date.now() < gateDeadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
+    const firstPollStarted = existsSync(gate);
+    if (!firstPollStarted) writeFileSync(release, "release");
+    expect(firstPollStarted).toBe(true);
     const secondPoll = handlers.poll_external_objects();
-    await expect(secondPoll).resolves.toMatchObject({ refreshed: 1, failures: [] });
+    try {
+      await expect(secondPoll).resolves.toMatchObject({ refreshed: 1, failures: [] });
+    } finally {
+      writeFileSync(release, "release");
+    }
     await expect(firstPoll).resolves.toMatchObject({
       refreshed: 0,
       failures: [
@@ -429,7 +435,7 @@ describe("External Object commands and persistence", () => {
       linkId: link.id,
       policy: { title: false, state: true, metadata: false },
     });
-    const raw = new DatabaseSync(dbPath, { readOnly: true });
+    const raw = new Database(dbPath, { readonly: true });
     expect(
       raw
         .prepare(

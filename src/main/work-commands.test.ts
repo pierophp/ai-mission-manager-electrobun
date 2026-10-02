@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { copyFileSync, readFileSync } from "node:fs";
 import { createCommandDispatcher, invokeEnvelope } from "../shared/ipc";
@@ -217,7 +217,7 @@ describe("Item, Home and search commands", () => {
     initial.snapshots = [];
     initial.next_external_object_id = 1;
     initial.next_link_id = 1;
-    const raw = new DatabaseSync(file);
+    const raw = new Database(file);
     raw.exec(
       "DELETE FROM external_snapshots; DELETE FROM external_links; DELETE FROM external_objects",
     );
@@ -289,7 +289,7 @@ describe("Item, Home and search commands", () => {
     initial.snapshots = [];
     initial.next_external_object_id = 1;
     initial.next_link_id = 1;
-    const raw = new DatabaseSync(file);
+    const raw = new Database(file);
     raw.exec(
       "DELETE FROM external_snapshots; DELETE FROM external_links; DELETE FROM external_objects",
     );
@@ -384,7 +384,7 @@ describe("Item, Home and search commands", () => {
     })) as { item: { id: number } }[];
     expect(found.map(({ item }) => item.id)).toEqual([first.id]);
 
-    const raw = new DatabaseSync(file, { readOnly: true });
+    const raw = new Database(file, { readonly: true });
     expect(raw.prepare("SELECT title FROM items WHERE id=?").get(first.id)).toEqual({
       title: "Persisted title",
     });
@@ -505,7 +505,7 @@ describe("Run reconciliation", () => {
     expect(runtime.snapshot().implementation_queues[0]?.pausedReason).toEqual({
       kind: "pane_missing",
     });
-    const raw = new DatabaseSync(file, { readOnly: true });
+    const raw = new Database(file, { readonly: true });
     const queueJson = (
       raw.prepare("SELECT queue_json FROM implementation_queues WHERE id=1").get() as {
         queue_json: string;

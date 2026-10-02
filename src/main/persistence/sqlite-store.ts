@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type {
   ActivityTabView,
   AuditEntry,
@@ -54,7 +54,7 @@ export function openSqliteStore(databasePath?: string): SqliteStore {
 export class SqliteStore {
   private readonly machineReadiness = new Map<number, MachineReadiness>();
   constructor(
-    private readonly database: DatabaseSync,
+    private readonly database: Database,
     readonly path: string,
   ) {}
 
@@ -87,7 +87,9 @@ export class SqliteStore {
     try {
       for (const effect of decision.effects) this.applyEffect(effect);
       let nextAuditId = Number(
-        this.database.prepare("SELECT value FROM metadata WHERE key='next_audit_id'").get()?.value,
+        this.database
+          .prepare<{ value: number }, SQLQueryBindings[]>("SELECT value FROM metadata WHERE key='next_audit_id'")
+          .get()?.value,
       );
       for (const effect of auditEffects) {
         let action: string;
@@ -813,7 +815,9 @@ export class SqliteStore {
   }
   auditEntryCount(): number {
     return Number(
-      this.database.prepare("SELECT COUNT(*) AS count FROM audit_entries").get()?.count ?? 0,
+      this.database
+        .prepare<{ count: number }, SQLQueryBindings[]>("SELECT COUNT(*) AS count FROM audit_entries")
+        .get()?.count ?? 0,
     );
   }
   getActivityTab(): ActivityTabView {

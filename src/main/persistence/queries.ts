@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
+import type { Database } from "bun:sqlite";
 import type {
   ActivityTabView,
   AuditEntry,
@@ -17,34 +17,34 @@ import { signInCommand } from "./settings";
 
 type Row = Record<string, unknown>;
 
-export function listContexts(database: DatabaseSync): Context[] {
+export function listContexts(database: Database): Context[] {
   return loadDomainState(database).contexts;
 }
-export function listProjects(database: DatabaseSync): Project[] {
+export function listProjects(database: Database): Project[] {
   return loadDomainState(database).projects;
 }
-export function listRepositories(database: DatabaseSync): Repository[] {
+export function listRepositories(database: Database): Repository[] {
   return loadDomainState(database).repositories;
 }
-export function listRepositoryLocations(database: DatabaseSync): RepositoryLocation[] {
+export function listRepositoryLocations(database: Database): RepositoryLocation[] {
   return loadDomainState(database).repository_locations;
 }
-export function listMachines(database: DatabaseSync): Machine[] {
+export function listMachines(database: Database): Machine[] {
   return loadDomainState(database).machines.map((machine) => ({ ...machine, readiness: null }));
 }
-export function listCliConfigurationProfiles(database: DatabaseSync): CliProfileSettingsView[] {
+export function listCliConfigurationProfiles(database: Database): CliProfileSettingsView[] {
   return loadDomainState(database).cli_configuration_profiles.map((profile) => ({
     profile,
     signInCommand: profile.appManaged ? signInCommand(profile.provider, profile.directory) : null,
   }));
 }
-export function listContextAttentionDefaults(database: DatabaseSync): ContextAttentionDefault[] {
+export function listContextAttentionDefaults(database: Database): ContextAttentionDefault[] {
   return loadDomainState(database).attention_defaults;
 }
-export function listInboxItems(database: DatabaseSync): Item[] {
+export function listInboxItems(database: Database): Item[] {
   return loadDomainState(database).items.filter((item) => item.status === "Inbox");
 }
-export function listAuditHistory(database: DatabaseSync): AuditEntry[] {
+export function listAuditHistory(database: Database): AuditEntry[] {
   return rows<Row>(
     database,
     "SELECT id,recorded_at,action_json FROM audit_entries ORDER BY id DESC LIMIT 200",
@@ -54,7 +54,7 @@ export function listAuditHistory(database: DatabaseSync): AuditEntry[] {
     action: decodeAuditAction(asString(row.action_json, "Audit action")) as AuditEntry["action"],
   }));
 }
-export function getActivityTab(database: DatabaseSync): ActivityTabView {
+export function getActivityTab(database: Database): ActivityTabView {
   const state = loadDomainState(database);
   const audit_entries = listAuditHistory(database);
   const byId = new Map(state.external_objects.map((object) => [object.id, object]));

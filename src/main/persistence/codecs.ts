@@ -1,4 +1,4 @@
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type { ItemRelation } from "../../renderer/runtime/types";
 import type { Run } from "../../renderer/runtime/execution-types";
 
@@ -31,10 +31,10 @@ export function optionalString(value: unknown): string | null {
 export function optionalNumber(value: unknown): number | null {
   return typeof value === "number" ? value : null;
 }
-export function rows<T>(database: DatabaseSync, sql: string, params: SQLInputValue[] = []): T[] {
+export function rows<T>(database: Database, sql: string, params: SQLQueryBindings[] = []): T[] {
   return database.prepare(sql).all(...params) as T[];
 }
-export function tableColumns(database: DatabaseSync, table: string): string[] {
+export function tableColumns(database: Database, table: string): string[] {
   return rows<{ name: string }>(database, `PRAGMA table_info(${table})`).map((row) => row.name);
 }
 

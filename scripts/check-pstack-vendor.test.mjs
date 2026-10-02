@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
+import { expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
 import { checkTree } from "./check-pstack-vendor.mjs";
 
 function fixture() {
@@ -16,7 +15,7 @@ function fixture() {
 test("accepts a tree with safe references", () => {
   const root = fixture();
   try {
-    assert.deepEqual(checkTree(root), []);
+    expect(checkTree(root)).toEqual([]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -35,7 +34,7 @@ test("rejects removed Cursor-only facilities", () => {
     const root = fixture();
     try {
       fs.writeFileSync(path.join(root, "README.md"), `${reference}\n`);
-      assert.match(checkTree(root).join("\n"), expected);
+      expect(checkTree(root).join("\n")).toMatch(expected);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -49,7 +48,7 @@ test("rejects paths missing from poteto-mode", () => {
       path.join(root, "skills/poteto-mode/playbook.md"),
       "[missing](./missing.md)\n",
     );
-    assert.match(checkTree(root).join("\n"), /referenced path does not exist/);
+    expect(checkTree(root).join("\n")).toMatch(/referenced path does not exist/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -62,7 +61,7 @@ test("rejects missing paths written in poteto-mode instructions", () => {
       path.join(root, "skills/poteto-mode/playbook.md"),
       "Read `skills/poteto-mode/missing.md`.\n",
     );
-    assert.match(checkTree(root).join("\n"), /referenced path does not exist/);
+    expect(checkTree(root).join("\n")).toMatch(/referenced path does not exist/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -77,14 +76,13 @@ test("checks command arguments and ignores bare runtime file names", () => {
       path.join(root, "skills/poteto-mode/playbook.md"),
       "Use `bun scripts/orch.ts`. Keep `status.md` and `frontier.json` in the store.\n",
     );
-    assert.deepEqual(checkTree(root), []);
+    expect(checkTree(root)).toEqual([]);
 
     fs.writeFileSync(
       path.join(root, "skills/poteto-mode/playbook.md"),
       "Use `bun scripts/missing.ts`.\n",
     );
-    assert.match(
-      checkTree(root).join("\n"),
+    expect(checkTree(root).join("\n")).toMatch(
       /referenced path does not exist: scripts\/missing\.ts/,
     );
   } finally {

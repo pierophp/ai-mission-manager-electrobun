@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 
 import { queryClient } from "./query-client";
 import { router } from "./router";
+import "./runtime/desktop-api";
 import "./styles.css";
 import { initializeTheme } from "./theme";
 

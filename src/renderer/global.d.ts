@@ -1,4 +1,4 @@
-import type { DesktopApi } from "../preload";
+import type { DesktopApi } from "./runtime/desktop-api";
 
 declare global {
   interface Window {

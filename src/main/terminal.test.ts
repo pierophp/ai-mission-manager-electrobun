@@ -141,7 +141,7 @@ describe("tmux observations", () => {
           "%7",
           callbacks,
         ),
-      ).rejects.toThrow("Could not attach to Pane on Machine Local: spawn");
+      ).rejects.toThrow("Could not attach to Pane on Machine Local:");
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

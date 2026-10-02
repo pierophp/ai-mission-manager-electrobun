@@ -1,17 +1,19 @@
-import { DatabaseSync } from "node:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type { ContextConfiguration, SetupState } from "../../renderer/runtime/types";
 import { defaultPstackRoles } from "../../domain/model";
 import { optionalString } from "./codecs";
 
 const allAttention = { title: true, state: true, metadata: true };
 
-export function readSetting(database: DatabaseSync, key: string): string | null {
+export function readSetting(database: Database, key: string): string | null {
   return optionalString(
-    database.prepare("SELECT value FROM settings WHERE key = ?").get(key)?.value,
+    database
+      .prepare<{ value: string }, SQLQueryBindings[]>("SELECT value FROM settings WHERE key = ?")
+      .get(key)?.value,
   );
 }
 
-export function getSetupState(database: DatabaseSync): SetupState {
+export function getSetupState(database: Database): SetupState {
   const completed = readSetting(database, "setup_completed") === "true";
   const provider = readSetting(database, "provider_choice");
   if (provider && provider !== "github" && provider !== "none") {

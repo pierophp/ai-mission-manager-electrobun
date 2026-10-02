@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runtime } from "./runtime";
 import { openSqliteStore } from "./persistence/sqlite-store";
@@ -22,7 +22,7 @@ function setup(dirty = false, localMarkdown = false, ticketUrlOverride?: string)
     readFileSync("src/main/persistence/fixtures/domain-state.json", "utf8"),
   ) as import("../domain/model").DomainState;
   let checkoutIsDirty = dirty;
-  const seed = new DatabaseSync(store.path);
+  const seed = new Database(store.path);
   seed
     .prepare(
       "INSERT INTO items(id,human_identifier,title,project_id,status,notes) VALUES(1,'I-1','Fixture item',1,'Active','')",

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCommandDispatcher, invokeEnvelope } from "../shared/ipc";
 import { Runtime } from "./runtime";
@@ -87,7 +87,7 @@ describe("deletion commands", () => {
     expect(store.loadState().relationships).toEqual([]);
     expect(store.loadState().links).toEqual([]);
     expect(store.loadState().external_objects).toEqual([]);
-    const raw = new DatabaseSync(store.path, { readOnly: true });
+    const raw = new Database(store.path, { readonly: true });
     expect(raw.prepare("SELECT COUNT(*) AS count FROM reminders WHERE item_id=1").get()).toEqual({
       count: 0,
     });
@@ -272,7 +272,7 @@ describe("deletion commands", () => {
     expect(state.repositories.map(({ id }) => id)).toEqual([2]);
     expect(state.workspaces).toHaveLength(1);
     expect(state.workspaces[0].repositories.map(({ repositoryId }) => repositoryId)).toEqual([2]);
-    const raw = new DatabaseSync(store.path, { readOnly: true });
+    const raw = new Database(store.path, { readonly: true });
     expect(raw.prepare("SELECT COUNT(*) AS count FROM workspaces").get()).toEqual({ count: 1 });
     expect(raw.prepare("SELECT repository_id FROM workspace_repositories").all()).toEqual([
       { repository_id: 2 },
@@ -368,9 +368,11 @@ describe("deletion commands", () => {
     const updatedPreview = (await invokeEnvelope(dispatch, "prepare_reset_local_data")) as {
       confirmationPhrase: string;
     };
-    const rawForAudit = new DatabaseSync(store.path);
+    const rawForAudit = new Database(store.path);
     const nextAuditId = Number(
-      rawForAudit.prepare("SELECT value FROM metadata WHERE key='next_audit_id'").get()?.value,
+      rawForAudit
+        .prepare<{ value: number }, SQLQueryBindings[]>("SELECT value FROM metadata WHERE key='next_audit_id'")
+        .get()?.value,
     );
     rawForAudit
       .prepare("INSERT INTO audit_entries(id,recorded_at,action_json) VALUES(?,?,?)")
@@ -391,7 +393,7 @@ describe("deletion commands", () => {
     expect(store.loadState().contexts.map(({ name }) => name)).toEqual(["Personal"]);
     expect(store.loadState().projects.map(({ name }) => name)).toEqual(["Default"]);
     expect(store.loadState().items).toEqual([]);
-    const raw = new DatabaseSync(store.path, { readOnly: true });
+    const raw = new Database(store.path, { readonly: true });
     expect(raw.prepare("SELECT COUNT(*) AS count FROM audit_entries").get()).toEqual({ count: 0 });
     raw.close();
     store.close();

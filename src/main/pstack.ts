@@ -26,21 +26,12 @@ function hashPstackFiles(files: readonly PstackHashFile[]) {
   return hash.digest("hex");
 }
 
-export function resolvePstackResourcePaths(options: {
-  isPackaged: boolean;
-  appPath: string;
-  resourcesPath: string;
-}) {
-  const root = options.isPackaged ? options.resourcesPath : options.appPath;
-  return options.isPackaged
-    ? {
-        treeDirectory: path.join(root, "pstack"),
-        manifestFile: path.join(root, "pstack-manifest.json"),
-      }
-    : {
-        treeDirectory: path.join(root, "agents/pstack"),
-        manifestFile: path.join(root, "src/main/pstack-manifest.json"),
-      };
+export function resolvePstackResourcePaths(resourcesPath: string) {
+  const appResourcesPath = path.join(resourcesPath, "app");
+  return {
+    treeDirectory: path.join(appResourcesPath, "pstack"),
+    manifestFile: path.join(appResourcesPath, "pstack-manifest.json"),
+  };
 }
 
 export function verifyPstackResources(paths: { treeDirectory: string; manifestFile: string }) {

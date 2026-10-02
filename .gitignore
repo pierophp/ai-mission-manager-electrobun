@@ -1,5 +1,10 @@
 node_modules/
 dist/
 out/
+build/
+artifacts/
 .vite/
+.hutch/
+.cache/
 ai-mission-manager-tauri/
+.cottontail-tmp/

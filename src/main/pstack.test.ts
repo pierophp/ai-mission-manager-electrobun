@@ -47,32 +47,26 @@ describe("vendored pstack resources", () => {
     expect(pstackSkillSnapshot()).toContain("pstack version 0.15.5");
   });
 
-  it("resolves development and packaged resource paths and verifies the manifest", () => {
-    const development = resolvePstackResourcePaths({
-      isPackaged: false,
-      appPath: process.cwd(),
-      resourcesPath: "/unused/resources",
-    });
-    expect(development.treeDirectory).toBe(path.join(process.cwd(), "agents/pstack"));
-    expect(development.manifestFile).toBe(path.join(process.cwd(), "src/main/pstack-manifest.json"));
-    expect(() => verifyPstackResources(development)).not.toThrow();
-
-    const resources = fs.mkdtempSync(path.join(os.tmpdir(), "pstack-packaged-resources-"));
+  it("resolves app resources consistently and verifies the manifest", () => {
+    const resources = fs.mkdtempSync(path.join(os.tmpdir(), "pstack-app-resources-"));
     try {
-      fs.cpSync(development.treeDirectory, path.join(resources, "pstack"), { recursive: true });
-      fs.copyFileSync(development.manifestFile, path.join(resources, "pstack-manifest.json"));
-      const packaged = resolvePstackResourcePaths({
-        isPackaged: true,
-        appPath: "/unused/app.asar",
-        resourcesPath: resources,
+      const appResources = path.join(resources, "app");
+      fs.mkdirSync(appResources);
+      fs.cpSync(path.join(process.cwd(), "agents/pstack"), path.join(appResources, "pstack"), {
+        recursive: true,
       });
-      expect(packaged).toEqual({
-        treeDirectory: path.join(resources, "pstack"),
-        manifestFile: path.join(resources, "pstack-manifest.json"),
+      fs.copyFileSync(
+        path.join(process.cwd(), "src/main/pstack-manifest.json"),
+        path.join(appResources, "pstack-manifest.json"),
+      );
+      const paths = resolvePstackResourcePaths(resources);
+      expect(paths).toEqual({
+        treeDirectory: path.join(appResources, "pstack"),
+        manifestFile: path.join(appResources, "pstack-manifest.json"),
       });
-      expect(() => verifyPstackResources(packaged)).not.toThrow();
-      fs.appendFileSync(path.join(packaged.treeDirectory, "README.md"), " modified");
-      expect(() => verifyPstackResources(packaged)).toThrow(
+      expect(() => verifyPstackResources(paths)).not.toThrow();
+      fs.appendFileSync(path.join(paths.treeDirectory, "README.md"), " modified");
+      expect(() => verifyPstackResources(paths)).toThrow(
         "pstack packaged resources do not match the embedded pstack manifest",
       );
     } finally {

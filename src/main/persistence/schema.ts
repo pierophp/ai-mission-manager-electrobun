@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { tableColumns, rows } from "./codecs";
 
 const INCOMPATIBLE_SCHEMA = "database schema is incompatible; remove the database and start again";
@@ -13,10 +13,7 @@ export const schemaRemainder =
 
 function createFreshDatabase(databasePath: string): void {
   mkdirSync(path.dirname(databasePath), { recursive: true });
-  const database = new DatabaseSync(databasePath, {
-    enableForeignKeyConstraints: true,
-    timeout: 1000,
-  });
+  const database = new Database(databasePath);
   try {
     database.exec(
       "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000; PRAGMA journal_mode = DELETE;",
@@ -54,10 +51,7 @@ export function openSqliteDatabase(
   databasePath = path.join(homedir(), ".ai-mission-manager", "mission-manager.sqlite"),
 ) {
   if (!existsSync(databasePath)) createFreshDatabase(databasePath);
-  const database = new DatabaseSync(databasePath, {
-    enableForeignKeyConstraints: true,
-    timeout: 1000,
-  });
+  const database = new Database(databasePath);
   database.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000;");
   try {
     const journalMode = rows<{ journal_mode: string }>(database, "PRAGMA journal_mode")[0]
@@ -72,10 +66,10 @@ export function openSqliteDatabase(
   }
 }
 
-function validateCompatibleSchema(database: DatabaseSync): void {
-  const expected = new DatabaseSync(":memory:");
+function validateCompatibleSchema(database: Database): void {
+  const expected = new Database(":memory:");
   try {
-    expected.exec("PRAGMA foreign_keys=ON;");
+    expected.exec("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=1000;");
     expected.exec(schemaPrelude);
     expected.exec(
       "CREATE TABLE items (id INTEGER PRIMARY KEY NOT NULL, human_identifier TEXT NOT NULL UNIQUE, title TEXT NOT NULL, project_id INTEGER NOT NULL REFERENCES projects(id), status TEXT NOT NULL CHECK (status IN ('Inbox','Active','Waiting','Done')), notes TEXT NOT NULL DEFAULT '')",

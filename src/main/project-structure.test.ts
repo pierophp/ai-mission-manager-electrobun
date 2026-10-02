@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { Runtime } from "./runtime";
 import { createStructureCommandHandlers } from "./structure-commands";
@@ -27,7 +27,7 @@ describe("Project and Repository commands", () => {
   it("persists Project defaults, Repositories, locations, and hidden execution Workspaces", async () => {
     const file = databasePath();
     const store = openSqliteStore(file);
-    const seed = new DatabaseSync(file);
+    const seed = new Database(file);
     seed
       .prepare(
         "INSERT INTO items(id,human_identifier,title,project_id,status,notes) VALUES(1,'I-23','Task',1,'Inbox','')",
@@ -117,7 +117,7 @@ describe("Project and Repository commands", () => {
       remoteUrl: "git@github.com:team/docs.git",
     });
 
-    const inspection = new DatabaseSync(file, { readOnly: true });
+    const inspection = new Database(file, { readonly: true });
     expect(
       inspection
         .prepare(
@@ -221,7 +221,7 @@ describe("Project and Repository commands", () => {
   it("runs workspace reconciliation again when startup loads an existing Item and Repository", () => {
     const file = databasePath();
     const store = openSqliteStore(file);
-    const seed = new DatabaseSync(file);
+    const seed = new Database(file);
     seed
       .prepare(
         "INSERT INTO items(id,human_identifier,title,project_id,status,notes) VALUES(1,'I-42','Task',1,'Inbox','')",
@@ -245,7 +245,7 @@ describe("Project and Repository commands", () => {
         repositories: [{ repositoryId: 1, branch: "mission-I-42", baseBranch: "main" }],
       },
     ]);
-    const persisted = new DatabaseSync(file, { readOnly: true });
+    const persisted = new Database(file, { readonly: true });
     expect(persisted.prepare("SELECT id,item_id FROM workspaces").all()).toEqual([
       { id: 1, item_id: 1 },
     ]);
@@ -256,7 +256,7 @@ describe("Project and Repository commands", () => {
   it("validates and moves Repository locations with the Rust error messages", () => {
     const file = databasePath();
     const store = openSqliteStore(file);
-    const seed = new DatabaseSync(file);
+    const seed = new Database(file);
     seed.exec("PRAGMA foreign_keys=ON");
     seed.prepare("INSERT INTO contexts(id,name) VALUES(2,'Other')").run();
     seed
